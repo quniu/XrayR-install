@@ -10,7 +10,7 @@ A Xray backend framework that can easily support many panels.
 ## 一键安装
 
 ```
-wget -N https://raw.githubusercontent.com/quniu/XrayR-install/master/install.sh && bash install.sh
+bash <(curl -Ls https://raw.githubusercontent.com/quniu/XrayR-install/master/install.sh)
 ```
 
 ## Docker 安装

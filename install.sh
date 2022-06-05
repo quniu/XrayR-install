@@ -74,10 +74,10 @@ fi
 install_base() {
     if [[ x"${release}" == x"centos" ]]; then
         yum install epel-release -y
-        yum install wget curl unzip tar crontabs socat -y
+        yum install wget curl unzip tar crontabs socat ca-certificates -y
     else
         apt-get update -y
-        apt install wget curl unzip tar cron socat -y
+        apt install wget curl unzip tar cron socat ca-certificates -y
     fi
 }
 
@@ -91,6 +91,42 @@ check_status() {
         return 0
     else
         return 1
+    fi
+}
+
+# 0: running, 1: not running, 2: not installed
+check_nginx_status() {
+    temp=$(systemctl status nginx | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1)
+    if [[ x"${temp}" == x"running" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+install_nginx() {
+    if [[ x"${release}" == x"centos" ]]; then
+        yum install epel-release -y
+        yum install nginx -y
+    else
+        apt-get update -y
+        apt install nginx -y
+    fi
+    systemctl daemon-reload
+    systemctl stop nginx
+    systemctl enable nginx
+    systemctl start nginx
+    sleep 2
+    echo -e "-------------------"
+    echo -e "检查 Nginx 启动状态"
+    echo -e "-------------------"
+    check_nginx_status
+    if [[ $? == 0 ]]; then
+        echo -e "${green}Nginx 已启动${plain}"
+        echo -e ""
+    else
+        echo -e "${red}Nginx启动失败${plain}"
+        echo -e ""
     fi
 }
 
@@ -192,6 +228,8 @@ install_XrayR() {
     echo "XrayR disable      - 取消 XrayR 开机自启"
     echo "XrayR log          - 查看 XrayR 日志"
     echo "XrayR generate     - 生成 XrayR 配置文件"
+    echo "XrayR nginx        - 生成 Nginx 配置文件"
+    echo "XrayR ssl          - 生成 SSL 通配符证书"
     echo "XrayR update       - 更新 XrayR"
     echo "XrayR update x.x.x - 更新 XrayR 指定版本"
     echo "XrayR install      - 安装 XrayR"
@@ -202,5 +240,6 @@ install_XrayR() {
 
 echo -e "${green}开始安装${plain}"
 install_base
+install_nginx
 install_acme
 install_XrayR $1
