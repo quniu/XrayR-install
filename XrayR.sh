@@ -350,7 +350,7 @@ generate_config_file() {
     echo -e "${red}1. 目前该功能正处测试阶段${plain}"
     echo -e "${red}2. 生成的配置文件会保存到 /etc/XrayR/config.yml${plain}"
     echo -e "${red}3. 原来的配置文件会保存到 /etc/XrayR/config.yml.bak${plain}"
-    echo -e "${red}4. 目前不支持TLS${plain}"
+    echo -e "-----------------------------------------------------"
     read -rp "是否继续生成配置文件？(y/n)" generate_config_file_continue
     if [[ $generate_config_file_continue =~ "y"|"Y" ]]; then
         echo -e "${yellow}请选择你的面板类型，如未列出则不支持：${plain}"
@@ -358,7 +358,8 @@ generate_config_file() {
         echo -e "${green}2. V2board ${plain}"
         echo -e "${green}3. PMpanel ${plain}"
         echo -e "${green}4. Proxypanel ${plain}"
-        read -rp "请输入面板类型 [1-4，默认1]：" PanelType
+        read -rp "请输入面板类型 [1-4，默认2]：" PanelType
+        [ -z "${PanelType}" ] && PanelType=2
         case "$PanelType" in
             1 ) PanelType="SSpanel" ;;
             2 ) PanelType="V2board" ;;
@@ -368,48 +369,111 @@ generate_config_file() {
         esac
         read -rp "请输入Api接口网址：" ApiHost
         read -rp "请输入面板对接API Key：" ApiKey
-        read -rp "请输入节点Node ID:" NodeID
+        read -rp "请输入节点Node ID [默认1]:" NodeID
+        [ -z "${NodeID}" ] && NodeID=1
+        read -rp "请输入节点域名:" NodeDoMain
+        read -rp "请输入节点端口 [默认10082]:" NodePort
+        [ -z "${NodePort}" ] && NodePort=10082
+        read -rp "请输入阿里云 AccessKey ID:" AccessKeyID
+        read -rp "请输入阿里云 AccessKey Secret:" AccessKeySecret
         echo -e "${yellow}请选择节点传输协议，如未列出则不支持：${plain}"
         echo -e "${green}1. Shadowsocks ${plain}"
         echo -e "${green}2. Shadowsocks-Plugin ${plain}"
         echo -e "${green}3. V2ray ${plain}"
         echo -e "${green}4. Trojan ${plain}"
-        read -rp "请输入传输协议 [1-4，默认1]：" NodeType
+        read -rp "请输入传输协议 [1-4，默认4]：" NodeType
+        [ -z "${NodeType}" ] && NodeType=4
         case "$NodeType" in
-            1 ) NodeType="Shadowsocks" ;;
-            2 ) NodeType="Shadowsocks-Plugin" ;;
-            3 ) NodeType="V2ray" ;;
-            4 ) NodeType="Trojan" ;;
-            * ) NodeType="Shadowsocks" ;;
+            1 ) NodeType="Shadowsocks" && cat_shadowsocks_config ;;
+            2 ) NodeType="Shadowsocks-Plugin" && cat_shadowsocks_config ;;
+            3 ) NodeType="V2ray" && cat_v2ray_config ;;
+            4 ) NodeType="Trojan" && cat_trojan_config ;;
+            * ) NodeType="Shadowsocks" && cat_shadowsocks_config ;;
         esac
         cd /etc/XrayR
         mv config.yml config.yml.bak
-        cat <<EOF > /etc/XrayR/config.yml
+        echo -e "${green}XrayR 配置文件生成完成，正在重新启动 XrayR 服务${plain}"
+        restart 0
+        before_show_menu
+    else
+        echo -e "${red}已取消 XrayR 配置文件生成${plain}"
+        before_show_menu
+    fi
+}
+
+cat_shadowsocks_config() {
+    cat > /etc/XrayR/config.yml<<-EOF
 Log:
-  Level: warning # Log level: none, error, warning, info, debug 
+  Level: none # Log level: none, error, warning, info, debug 
   AccessPath: # /etc/XrayR/access.Log
   ErrorPath: # /etc/XrayR/error.log
-DnsConfigPath: # /etc/XrayR/dns.json # Path to dns config, check https://xtls.github.io/config/base/dns/ for help
+DnsConfigPath: # /etc/XrayR/dns.json # Path to dns config, check https://xtls.github.io/config/dns.html for help
+RouteConfigPath: # /etc/XrayR/route.json # Path to route config, check https://xtls.github.io/config/routing.html for help
 InboundConfigPath: # /etc/XrayR/custom_inbound.json # Path to custom inbound config, check https://xtls.github.io/config/inbound.html for help
-RouteConfigPath: # /etc/XrayR/route.json # Path to route config, check https://xtls.github.io/config/base/route/ for help
-OutboundConfigPath: # /etc/XrayR/custom_outbound.json # Path to custom outbound config, check https://xtls.github.io/config/base/outbound/ for help
+OutboundConfigPath: # /etc/XrayR/custom_outbound.json # Path to custom outbound config, check https://xtls.github.io/config/outbound.html for help
 ConnetionConfig:
   Handshake: 4 # Handshake time limit, Second
-  ConnIdle: 30 # Connection idle time limit, Second
+  ConnIdle: 10 # Connection idle time limit, Second
   UplinkOnly: 2 # Time limit when the connection downstream is closed, Second
   DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
   BufferSize: 64 # The internal cache size of each connection, kB 
 Nodes:
   -
-    PanelType: "$PanelType" # Panel type: SSpanel, V2board, PMpanel, Proxypanel
+    PanelType: "${PanelType}" # Panel type: SSpanel, V2board
     ApiConfig:
-      ApiHost: "$ApiHost"
-      ApiKey: "$ApiKey"
-      NodeID: $NodeID
-      NodeType: $NodeType # Node type: V2ray, Shadowsocks, Trojan, Shadowsocks-Plugin
+      ApiHost: "${ApiHost}" # 修改这里
+      ApiKey: "${ApiKey}" # 修改这里
+      NodeID: ${NodeID}
+      NodeType: Shadowsocks # Node type: V2ray, Trojan, Shadowsocks, Shadowsocks-Plugin
       Timeout: 30 # Timeout for the api request
       EnableVless: false # Enable Vless for V2ray Type
       EnableXTLS: false # Enable XTLS for V2ray and Trojan
+      SpeedLimit: 0 # Mbps, Local settings will replace remote settings
+      DeviceLimit: 0 # Local settings will replace remote settings
+    ControllerConfig:
+      ListenIP: 0.0.0.0 # IP address you want to listen
+      UpdatePeriodic: 60 # Time to update the nodeinfo, how many sec.
+      EnableDNS: false # Use custom DNS config, Please ensure that you set the dns.json well
+      CertConfig:
+        CertMode: dns # Option about how to get certificate: none, file, http, dns
+        CertDomain: "ss.test.com" # Domain to cert
+        CertFile: /etc/XrayR/cert/ss.test.com.cert # Provided if the CertMode is file
+        KeyFile: /etc/XrayR/cert/ss.test.com.pem
+        Provider: alidns # DNS cert provider, Get the full support list here: https://go-acme.github.io/lego/dns/
+        Email: test@me.com
+        DNSEnv: # DNS ENV option used by DNS provider
+          ALICLOUD_ACCESS_KEY: aaa
+          ALICLOUD_SECRET_KEY: bbb
+EOF
+}
+
+cat_v2ray_config() {
+    cat > /etc/XrayR/config.yml<<-EOF
+Log:
+  Level: none # Log level: none, error, warning, info, debug 
+  AccessPath: # /etc/XrayR/access.Log
+  ErrorPath: # /etc/XrayR/error.log
+DnsConfigPath: # /etc/XrayR/dns.json # Path to dns config, check https://xtls.github.io/config/dns.html for help
+RouteConfigPath: # /etc/XrayR/route.json # Path to route config, check https://xtls.github.io/config/routing.html for help
+InboundConfigPath: # /etc/XrayR/custom_inbound.json # Path to custom inbound config, check https://xtls.github.io/config/inbound.html for help
+OutboundConfigPath: # /etc/XrayR/custom_outbound.json # Path to custom outbound config, check https://xtls.github.io/config/outbound.html for help
+ConnetionConfig:
+  Handshake: 4 # Handshake time limit, Second
+  ConnIdle: 10 # Connection idle time limit, Second
+  UplinkOnly: 2 # Time limit when the connection downstream is closed, Second
+  DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
+  BufferSize: 64 # The internal cache size of each connection, kB 
+Nodes:
+  -
+    PanelType: "${PanelType}" # Panel type: SSpanel, V2board
+    ApiConfig:
+      ApiHost: "${ApiHost}" # 修改这里
+      ApiKey: "${ApiKey}" # 修改这里
+      NodeID: ${NodeID}
+      NodeType: V2ray # Node type: V2ray, Trojan, Shadowsocks, Shadowsocks-Plugin
+      Timeout: 30 # Timeout for the api request
+      EnableVless: false # Enable Vless for V2ray Type
+      EnableXTLS: true # Enable XTLS for V2ray and Trojan
       SpeedLimit: 0 # Mbps, Local settings will replace remote settings, 0 means disable
       DeviceLimit: 0 # Local settings will replace remote settings, 0 means disable
       RuleListPath: # /etc/XrayR/rulelist Path to local rulelist file
@@ -419,32 +483,217 @@ Nodes:
       UpdatePeriodic: 60 # Time to update the nodeinfo, how many sec.
       EnableDNS: false # Use custom DNS config, Please ensure that you set the dns.json well
       DNSType: AsIs # AsIs, UseIP, UseIPv4, UseIPv6, DNS strategy
+      DisableUploadTraffic: false # Disable Upload Traffic to the panel
+      DisableGetRule: false # Disable Get Rule from the panel
+      DisableIVCheck: false # Disable the anti-reply protection for Shadowsocks
+      DisableSniffing: false # Disable domain sniffing 
       EnableProxyProtocol: false # Only works for WebSocket and TCP
       EnableFallback: false # Only support for Trojan and Vless
-      FallBackConfigs:  # Support multiple fallbacks
+      FallBackConfigs: # Support multiple fallbacks
         -
           SNI: # TLS SNI(Server Name Indication), Empty for any
+          Alpn: # Alpn, Empty for any
           Path: # HTTP PATH, Empty for any
           Dest: 80 # Required, Destination of fallback, check https://xtls.github.io/config/fallback/ for details.
           ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for dsable
       CertConfig:
         CertMode: dns # Option about how to get certificate: none, file, http, dns. Choose "none" will forcedly disable the tls config.
-        CertDomain: "node1.test.com" # Domain to cert
-        CertFile: /etc/XrayR/cert/node1.test.com.cert # Provided if the CertMode is file
-        KeyFile: /etc/XrayR/cert/node1.test.com.key
+        CertDomain: "${NodeDoMain}" # Domain to cert
+        CertFile: /etc/XrayR/cert/${NodeDoMain}.cert # Provided if the CertMode is file
+        KeyFile: /etc/XrayR/cert/${NodeDoMain}.key
         Provider: alidns # DNS cert provider, Get the full support list here: https://go-acme.github.io/lego/dns/
         Email: test@me.com
         DNSEnv: # DNS ENV option used by DNS provider
-          ALICLOUD_ACCESS_KEY: aaa
-          ALICLOUD_SECRET_KEY: bbb
+          ALICLOUD_ACCESS_KEY: ${AccessKeyID}
+          ALICLOUD_SECRET_KEY: ${AccessKeySecret}
 EOF
-        echo -e "${green}XrayR 配置文件生成完成，正在重新启动 XrayR 服务${plain}"
+}
+
+cat_trojan_config() {
+    cat > /etc/XrayR/config.yml<<-EOF
+Log:
+  Level: none # Log level: none, error, warning, info, debug 
+  AccessPath: # /etc/XrayR/access.Log
+  ErrorPath: # /etc/XrayR/error.log
+DnsConfigPath: # /etc/XrayR/dns.json # Path to dns config, check https://xtls.github.io/config/dns.html for help
+RouteConfigPath: # /etc/XrayR/route.json # Path to route config, check https://xtls.github.io/config/routing.html for help
+InboundConfigPath: # /etc/XrayR/custom_inbound.json # Path to custom inbound config, check https://xtls.github.io/config/inbound.html for help
+OutboundConfigPath: # /etc/XrayR/custom_outbound.json # Path to custom outbound config, check https://xtls.github.io/config/outbound.html for help
+ConnetionConfig:
+  Handshake: 4 # Handshake time limit, Second
+  ConnIdle: 10 # Connection idle time limit, Second
+  UplinkOnly: 2 # Time limit when the connection downstream is closed, Second
+  DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
+  BufferSize: 64 # The internal cache size of each connection, kB 
+Nodes:
+  -
+    PanelType: "${PanelType}" # Panel type: SSpanel, V2board
+    ApiConfig:
+      ApiHost: "${ApiHost}" # 修改这里
+      ApiKey: "${ApiKey}" # 修改这里
+      NodeID: ${NodeID}
+      NodeType: Trojan # Node type: V2ray, Trojan, Shadowsocks, Shadowsocks-Plugin
+      Timeout: 30 # Timeout for the api request
+      EnableVless: false # Enable Vless for V2ray Type
+      EnableXTLS: true # Enable XTLS for V2ray and Trojan
+      SpeedLimit: 0 # Mbps, Local settings will replace remote settings, 0 means disable
+      DeviceLimit: 0 # Local settings will replace remote settings, 0 means disable
+      RuleListPath: # /etc/XrayR/rulelist Path to local rulelist file
+    ControllerConfig:
+      ListenIP: 127.0.0.1 # IP address you want to listen
+      SendIP: 0.0.0.0 # IP address you want to send pacakage
+      UpdatePeriodic: 60 # Time to update the nodeinfo, how many sec.
+      EnableDNS: false # Use custom DNS config, Please ensure that you set the dns.json well
+      DNSType: AsIs # AsIs, UseIP, UseIPv4, UseIPv6, DNS strategy
+      DisableUploadTraffic: false # Disable Upload Traffic to the panel
+      DisableGetRule: false # Disable Get Rule from the panel
+      DisableIVCheck: false # Disable the anti-reply protection for Shadowsocks
+      DisableSniffing: false # Disable domain sniffing 
+      EnableProxyProtocol: true # Only works for WebSocket and TCP
+      EnableFallback: true # Only support for Trojan and Vless
+      FallBackConfigs:  # Support multiple fallbacks
+        -
+          SNI: # TLS SNI(Server Name Indication), Empty for any
+          Alpn: # Alpn, Empty for any
+          Path: # HTTP PATH, Empty for any
+          Dest: 80 # Required, Destination of fallback, check https://xtls.github.io/config/fallback/ for details.
+          ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for dsable
+      CertConfig:
+        CertMode: none # Option about how to get certificate: none, file, http, dns. Choose "none" will forcedly disable the tls config.
+        RejectUnknownSni: false # Reject unknown SNI
+        CertDomain: "${NodeDoMain}" # Domain to cert
+        CertFile: /etc/XrayR/cert/${NodeDoMain}.cert # Provided if the CertMode is file
+        KeyFile: /etc/XrayR/cert/${NodeDoMain}.key
+        Provider: alidns # DNS cert provider, Get the full support list here: https://go-acme.github.io/lego/dns/
+        Email: test@me.com
+        DNSEnv: # DNS ENV option used by DNS pro
+          ALICLOUD_ACCESS_KEY: ${AccessKeyID}
+          ALICLOUD_SECRET_KEY: ${AccessKeySecret}
+EOF
+}
+
+nginx_config_file() {
+    echo -e "${yellow}Nginx 配置文件生成向导${plain}"
+    read -rp "是否继续生成配置文件？(y/n)" nginx_config_file_continue
+    if [[ $nginx_config_file_continue =~ "y"|"Y" ]]; then
+        read -rp "请输入节点域名:" Node_DoMain
+        read -rp "请输入节点端口:" Node_Port
+        [ -z "${Node_Port}" ] && Node_Port=10082
+        mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+        cat_nginx_config
+        echo -e "${green}Nginx 配置文件生成完成，正在重新启动 Nginx 服务${plain}"
         restart 0
         before_show_menu
     else
-        echo -e "${red}已取消 XrayR 配置文件生成${plain}"
+        echo -e "${red}已取消 Nginx 配置文件生成${plain}"
         before_show_menu
     fi
+}
+
+cat_nginx_config() {
+    cat > /etc/nginx/nginx.conf<<-EOF
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+	worker_connections 768;
+	# multi_accept on;
+}
+
+stream {
+	server {
+		listen             443 ssl;
+		ssl_protocols      TLSv1 TLSv1.1 TLSv1.2;
+		ssl_certificate     /etc/XrayR/cert/certificates/${Node_DoMain}.crt; # 证书地址
+		ssl_certificate_key /etc/XrayR/cert/certificates/${Node_DoMain}.key; # 秘钥地址
+		ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+		ssl_prefer_server_ciphers on;
+		ssl_session_cache shared:SSL:10m;
+		ssl_session_timeout 10m;
+		proxy_protocol    on; # 开启proxy_protocol获取真实ip
+		proxy_pass        127.0.0.1:${Node_Port}; # 后端Trojan监听端口
+    }
+}
+
+http {
+
+	##
+	# Basic Settings
+	##
+
+	sendfile on;
+	tcp_nopush on;
+	tcp_nodelay on;
+	keepalive_timeout 65;
+	types_hash_max_size 2048;
+	# server_tokens off;
+
+	# server_names_hash_bucket_size 64;
+	# server_name_in_redirect off;
+
+	include /etc/nginx/mime.types;
+	default_type application/octet-stream;
+
+	##
+	# SSL Settings
+	##
+
+	ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+	ssl_prefer_server_ciphers on;
+
+	##
+	# Logging Settings
+	##
+
+	access_log /var/log/nginx/access.log;
+	error_log /var/log/nginx/error.log;
+
+	##
+	# Gzip Settings
+	##
+
+	gzip on;
+
+	# gzip_vary on;
+	# gzip_proxied any;
+	# gzip_comp_level 6;
+	# gzip_buffers 16 8k;
+	# gzip_http_version 1.1;
+	# gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+	##
+	# Virtual Host Configs
+	##
+
+	include /etc/nginx/conf.d/*.conf;
+	include /etc/nginx/sites-enabled/*;
+}
+
+
+#mail {
+#	# See sample authentication script at:
+#	# http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+# 
+#	# auth_http localhost/auth.php;
+#	# pop3_capabilities "TOP" "USER";
+#	# imap_capabilities "IMAP4rev1" "UIDPLUS";
+# 
+#	server {
+#		listen     localhost:110;
+#		protocol   pop3;
+#		proxy      on;
+#	}
+# 
+#	server {
+#		listen     localhost:143;
+#		protocol   imap;
+#		proxy      on;
+#	}
+#}
+
+EOF
 }
 
 # 放开防火墙端口
@@ -476,6 +725,7 @@ show_usage() {
     echo "XrayR disable      - 取消 XrayR 开机自启"
     echo "XrayR log          - 查看 XrayR 日志"
     echo "XrayR generate     - 生成 XrayR 配置文件"
+    echo "XrayR nginx        - 生成 Nginx 配置文件"
     echo "XrayR update       - 更新 XrayR"
     echo "XrayR update x.x.x - 安装 XrayR 指定版本"
     echo "XrayR install      - 安装 XrayR"
@@ -508,6 +758,7 @@ show_menu() {
  ${green}13.${plain} 升级 XrayR 维护脚本
  ${green}14.${plain} 生成 XrayR 配置文件
  ${green}15.${plain} 放行 VPS 的所有网络端口
+ ${green}16.${plain} 生成 Nginx 配置文件
  "
  #后续更新可加入上方字符串中
     show_status
@@ -530,6 +781,7 @@ show_menu() {
         13) update_shell ;;
         14) generate_config_file ;;
         15) open_ports ;;
+        16) nginx_config_file ;;
         *) echo -e "${red}请输入正确的数字 [0-14]${plain}" ;;
     esac
 }
@@ -547,6 +799,7 @@ if [[ $# > 0 ]]; then
         "update") check_install 0 && update 0 $2 ;;
         "config") config $* ;;
         "generate") generate_config_file ;;
+        "nginx") nginx_config_file ;;
         "install") check_uninstall 0 && install 0 ;;
         "uninstall") check_install 0 && uninstall 0 ;;
         "version") check_install 0 && show_XrayR_version 0 ;;
