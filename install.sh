@@ -49,6 +49,8 @@ if [ "$(getconf WORD_BIT)" != '32' ] && [ "$(getconf LONG_BIT)" != '64' ] ; then
     exit 2
 fi
 
+os_version=""
+
 # os version
 if [[ -f /etc/os-release ]]; then
     os_version=$(awk -F'[= ."]' '/VERSION_ID/{print $3}' /etc/os-release)
@@ -155,12 +157,16 @@ install_XrayR() {
             exit 1
         fi
     else
-        last_version=$1
+        if [[ $1 == v* ]]; then
+            last_version=$1
+	else
+	    last_version="v"$1
+	fi
         url="https://github.com/quniu/XrayR/releases/download/${last_version}/XrayR-linux-${arch}.zip"
-        echo -e "开始安装 XrayR v$1"
+        echo -e "开始安装 XrayR ${last_version}"
         wget -q -N --no-check-certificate -O /usr/local/XrayR/XrayR-linux.zip ${url}
         if [[ $? -ne 0 ]]; then
-            echo -e "${red}下载 XrayR v$1 失败，请确保此版本存在${plain}"
+            echo -e "${red}下载 XrayR ${last_version} 失败，请确保此版本存在${plain}"
             exit 1
         fi
     fi
