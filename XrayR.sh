@@ -274,16 +274,22 @@ check_status() {
     fi
 }
 
-# 0: running, 1: not running, 2: not installed
-check_nginx_status() {
-    if [[ ! -f /etc/systemd/system/XrayR.service ]]; then
-        return 2
-    fi
+check_nginx() {
+    echo -e "-------------------"
+    echo -e "检查 Nginx 启动状态"
+    echo -e "-------------------"
+    systemctl enable nginx
+    systemctl daemon-reload
+    systemctl stop nginx
+    systemctl start nginx
+    sleep 1
     temp=$(systemctl status nginx | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1)
     if [[ x"${temp}" == x"running" ]]; then
-        return 0
+        echo -e "${green}Nginx 已启动${plain}"
+        echo -e ""
     else
-        return 1
+        echo -e "${red}Nginx启动失败${plain}"
+        echo -e ""
     fi
 }
 
@@ -604,7 +610,7 @@ pid /run/nginx.pid;
 include /etc/nginx/modules-enabled/*.conf;
 
 events {
-    worker_connections 768;
+    worker_connections 1024;
     # multi_accept on;
 }
 
@@ -634,7 +640,7 @@ http {
     tcp_nopush on;
     tcp_nodelay on;
     keepalive_timeout 65;
-    types_hash_max_size 2048;
+    types_hash_max_size 4096;
     # server_tokens off;
 
     # server_names_hash_bucket_size 64;
@@ -647,7 +653,7 @@ http {
     # SSL Settings
     ##
 
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Dropping SSLv3, ref: POODLE
     ssl_prefer_server_ciphers on;
 
     ##
@@ -690,16 +696,11 @@ nginx_config_file() {
         [ -z "${NodePort}" ] && NodePort=10082
         mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
         cat_nginx_config
-        sleep 1
+        sleep 2
         echo -e "----------------------"
         echo -e "正在重新启动 Nginx 服务"
         echo -e "----------------------"
-        check_nginx_status
-        if [[ $? == 0 ]]; then
-            echo -e "${green}Nginx 已启动${plain}"
-        else
-            echo -e "${red}Nginx启动失败${plain}"
-        fi
+        check_nginx
         echo -e "${green}正在重新启动 XrayR 服务${plain}"
         restart 0
         before_show_menu
@@ -739,12 +740,7 @@ create_nginx_ssl() {
         echo -e "----------------------"
         echo -e "正在重新启动 Nginx 服务"
         echo -e "----------------------"
-        check_nginx_status
-        if [[ $? == 0 ]]; then
-            echo -e "${green}Nginx 已启动${plain}"
-        else
-            echo -e "${red}Nginx启动失败${plain}"
-        fi
+        check_nginx
         echo -e "${green}正在重新启动 XrayR 服务${plain}"
         restart 0
         before_show_menu

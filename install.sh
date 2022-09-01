@@ -76,10 +76,10 @@ fi
 install_base() {
     if [[ x"${release}" == x"centos" ]]; then
         yum install epel-release -y
-        yum install wget curl unzip tar crontabs socat ca-certificates -y
+        yum install wget curl unzip tar crontabs socat ca-certificates nginx -y
     else
         apt-get update -y
-        apt install wget curl unzip tar cron socat ca-certificates -y
+        apt install wget curl unzip tar cron socat ca-certificates nginx -y
     fi
 }
 
@@ -96,34 +96,17 @@ check_status() {
     fi
 }
 
-# 0: running, 1: not running, 2: not installed
-check_nginx_status() {
-    temp=$(systemctl status nginx | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1)
-    if [[ x"${temp}" == x"running" ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-install_nginx() {
-    if [[ x"${release}" == x"centos" ]]; then
-        yum install epel-release -y
-        yum install nginx -y
-    else
-        apt-get update -y
-        apt install nginx -y
-    fi
-    systemctl daemon-reload
-    systemctl stop nginx
-    systemctl enable nginx
-    systemctl start nginx
-    sleep 2
+check_nginx() {
     echo -e "-------------------"
     echo -e "检查 Nginx 启动状态"
     echo -e "-------------------"
-    check_nginx_status
-    if [[ $? == 0 ]]; then
+    systemctl enable nginx
+    systemctl daemon-reload
+    systemctl stop nginx
+    systemctl start nginx
+    sleep 1
+    temp=$(systemctl status nginx | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1)
+    if [[ x"${temp}" == x"running" ]]; then
         echo -e "${green}Nginx 已启动${plain}"
         echo -e ""
     else
@@ -246,6 +229,6 @@ install_XrayR() {
 
 echo -e "${green}开始安装${plain}"
 install_base
-install_nginx
+check_nginx
 install_acme
 install_XrayR $1
