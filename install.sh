@@ -229,8 +229,10 @@ install_XrayR() {
 
 modify_time(){
     timedatectl set-timezone Asia/Shanghai
-    echo "LC_TIME=en_DK.UTF-8" >> /etc/default/locale && cat /etc/default/locale
+    # echo "LC_TIME=en_DK.UTF-8" >> /etc/default/locale && cat /etc/default/locale
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+    timedatectl set-timezone CST
+    ntpdate us.pool.ntp.org
 }
 
 echo -e "${green}开始安装${plain}"
