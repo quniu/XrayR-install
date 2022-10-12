@@ -231,7 +231,7 @@ modify_time(){
     timedatectl set-timezone Asia/Shanghai
     # echo "LC_TIME=en_DK.UTF-8" >> /etc/default/locale && cat /etc/default/locale
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-    timedatectl set-timezone CST
+    timedatectl set-timezone "Asia/Shanghai"
     ntpdate us.pool.ntp.org
 }
 
