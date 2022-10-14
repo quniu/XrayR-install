@@ -602,7 +602,7 @@ Nodes:
 EOF
 }
 
-cat_nginx_config() {
+cat_ubuntu_nginx_config() {
     cat > /etc/nginx/nginx.conf<<-EOF
 user www-data;
 worker_processes auto;
@@ -623,7 +623,7 @@ stream {
         # ssl_certificate     /etc/XrayR/cert/certificates/cert.crt; # 证书地址
         # ssl_certificate_key /etc/XrayR/cert/certificates/key.key; # 秘钥地址
         # ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
-        ssl_ciphers ALL:!DH:!EXPORT:!RC4:+HIGH:+MEDIUM:!eNULL;
+        ssl_ciphers HIGH:!aNULL:!MD5;
         ssl_prefer_server_ciphers on;
         ssl_session_cache shared:SSL:50m;
         ssl_session_timeout 1d;
@@ -690,6 +690,86 @@ http {
 EOF
 }
 
+cat_centos_nginx_config() {
+    cat > /etc/nginx/nginx.conf<<-EOF
+# For more information on configuration, see:
+#   * Official English Documentation: http://nginx.org/en/docs/
+#   * Official Russian Documentation: http://nginx.org/ru/docs/
+
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+stream {
+    server {
+        listen             443 ssl;
+        ssl_protocols      TLSv1 TLSv1.1 TLSv1.2;
+        ssl_certificate     /etc/nginx/ssl/xrayr/cert.pem; # 证书地址
+        ssl_certificate_key /etc/nginx/ssl/xrayr/key.pem; # 秘钥地址
+        # ssl_certificate     /etc/XrayR/cert/certificates/cert.crt; # 证书地址
+        # ssl_certificate_key /etc/XrayR/cert/certificates/key.key; # 秘钥地址
+        # ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+        ssl_session_cache shared:SSL:50m;
+        ssl_session_timeout 1d;
+        ssl_session_tickets off;
+        proxy_protocol    on; # 开启proxy_protocol获取真实ip
+        proxy_pass        127.0.0.1:${NodePort}; # 后端Trojan监听端口
+    }
+}
+
+http {
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile            on;
+    tcp_nopush          on;
+    tcp_nodelay         on;
+    keepalive_timeout   65;
+    types_hash_max_size 4096;
+
+    include             /etc/nginx/mime.types;
+    default_type        application/octet-stream;
+
+    # Load modular configuration files from the /etc/nginx/conf.d directory.
+    # See http://nginx.org/en/docs/ngx_core_module.html#include
+    # for more information.
+    include /etc/nginx/conf.d/*.conf;
+
+    server {
+        listen       80;
+        listen       [::]:80;
+        server_name  _;
+        root         /usr/share/nginx/html;
+
+        # Load configuration files for the default server block.
+        include /etc/nginx/default.d/*.conf;
+
+        error_page 404 /404.html;
+        location = /404.html {
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+        }
+    }
+}
+
+EOF
+}
+
 # 创建Nginx配置文件
 nginx_config_file() {
     echo -e "${yellow}Nginx 配置文件生成向导${plain}"
@@ -698,7 +778,16 @@ nginx_config_file() {
         read -rp "请输入节点端口 [默认10082]:" NodePort
         [ -z "${NodePort}" ] && NodePort=10082
         mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-        cat_nginx_config
+        if [[ x"${release}" == x"centos" ]]; then
+            echo -e "---------CentOS-------------"
+            yum install -y nginx-mod-stream
+            cat_centos_nginx_config
+        elif [[ x"${release}" == x"ubuntu" ]]; then
+            echo -e "---------Ubuntu-------------"
+            cat_ubuntu_nginx_config
+        else
+            echo -e "${red}未匹配 nginx 系统文件！${plain}\n" && exit 1
+        fi
         sleep 2
         echo -e "----------------------"
         echo -e "正在重新启动 Nginx 服务"
