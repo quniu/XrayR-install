@@ -622,10 +622,12 @@ stream {
         ssl_certificate_key /etc/nginx/ssl/xrayr/key.pem; # 秘钥地址
         # ssl_certificate     /etc/XrayR/cert/certificates/cert.crt; # 证书地址
         # ssl_certificate_key /etc/XrayR/cert/certificates/key.key; # 秘钥地址
-        ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+        # ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+        ssl_ciphers ALL:!DH:!EXPORT:!RC4:+HIGH:+MEDIUM:!eNULL;
         ssl_prefer_server_ciphers on;
-        ssl_session_cache shared:SSL:10m;
-        ssl_session_timeout 10m;
+        ssl_session_cache shared:SSL:50m;
+        ssl_session_timeout 1d;
+        ssl_session_tickets off;
         proxy_protocol    on; # 开启proxy_protocol获取真实ip
         proxy_pass        127.0.0.1:${NodePort}; # 后端Trojan监听端口
     }
@@ -640,7 +642,8 @@ http {
     tcp_nopush on;
     tcp_nodelay on;
     keepalive_timeout 65;
-    types_hash_max_size 4096;
+    types_hash_max_size 2048;
+    client_max_body_size 200m;
     # server_tokens off;
 
     # server_names_hash_bucket_size 64;
@@ -653,8 +656,8 @@ http {
     # SSL Settings
     ##
 
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Dropping SSLv3, ref: POODLE
-    ssl_prefer_server_ciphers on;
+    # ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Dropping SSLv3, ref: POODLE
+    # ssl_prefer_server_ciphers on;
 
     ##
     # Logging Settings
