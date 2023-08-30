@@ -382,9 +382,10 @@ generate_config_file() {
         [ -z "${PanelType}" ] && PanelType=2
         case "$PanelType" in
             1 ) PanelType="SSpanel" ;;
-            2 ) PanelType="V2board" ;;
-            3 ) PanelType="PMpanel" ;;
-            4 ) PanelType="Proxypanel" ;;
+            2 ) PanelType="NewV2board" ;;
+            3 ) PanelType="V2board" ;;
+            4 ) PanelType="PMpanel" ;;
+            5 ) PanelType="Proxypanel" ;;
             * ) PanelType="SSpanel" ;;
         esac
         read -rp "请输入Api接口网址：" ApiHost
@@ -443,7 +444,7 @@ ConnetionConfig:
   BufferSize: 64 # The internal cache size of each connection, kB 
 Nodes:
   -
-    PanelType: "${PanelType}" # Panel type: SSpanel, V2board
+    PanelType: "${PanelType}" # Panel type: SSpanel, NewV2board, V2board, PMpanel, Proxypanel
     ApiConfig:
       ApiHost: "${ApiHost}" # 修改这里
       ApiKey: "${ApiKey}" # 修改这里
@@ -492,7 +493,7 @@ ConnetionConfig:
   BufferSize: 64 # The internal cache size of each connection, kB 
 Nodes:
   -
-    PanelType: "${PanelType}" # Panel type: SSpanel, V2board
+    PanelType: "${PanelType}" # Panel type: SSpanel, NewV2board, V2board, PMpanel, Proxypanel
     ApiConfig:
       ApiHost: "${ApiHost}" # 修改这里
       ApiKey: "${ApiKey}" # 修改这里
@@ -557,7 +558,7 @@ ConnetionConfig:
   BufferSize: 64 # The internal cache size of each connection, kB 
 Nodes:
   -
-    PanelType: "${PanelType}" # Panel type: SSpanel, V2board
+    PanelType: "${PanelType}" # Panel type: SSpanel, NewV2board, V2board, PMpanel, Proxypanel
     ApiConfig:
       ApiHost: "${ApiHost}" # 修改这里
       ApiKey: "${ApiKey}" # 修改这里
